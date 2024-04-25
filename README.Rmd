@@ -16,45 +16,67 @@ knitr::opts_chunk$set(
 ```
 
 
+# Part 000. Abstract
+
+ggplot2 users sometimes forego a color or fill legend, instead coloring the text of categories in a title or annotation as they make mention of them using ggtext.
+
+But the process for doing this, I believer, can be somewhat tedious and error prone, because you have to type your own html color tags. The color tags also might make source composed title text less readable.
+
+I admire these plots, but maybe have made them once because they require some stamina and focus to choreograph the colored text coordination.
+
+Below we ‘crack open ggplot2 internals’ to try to streamline this process. Our objective is that text coloring automatically matches whatever ggplot2 is doing with color and fill scales.
+
 # Part 00. Proposal
 
-Proposing the {ggtextExtra} package! 🦄 
+This repo proposes the {ggtextExtra} package. 🦄 
 <!-- (typical package introduction write up; but actually aspirational) -->
 
-The goal of {ggtextExtra} is to make ... easier.
+The goal of {ggtextExtra} is to make matching colors text written via ggtext moves to ggplot2 layers (geoms that are filled or colored).
+
+There's just one function that's worked out so far (matching fill color for title), but I think it's a useful one and could be easily extended to other areas (geom_textbox, color).
 
 
-Without the package, we live in the effort-ful world that follows 🏋:
+Without the package, we can do something like the following 🏋:
 
 ```{r}
 library(tidyverse)
 
-iris  |>
- ggplot(aes(Sepal.Length, Sepal.Width,
-             fill = Species)) +
-  geom_point(show.legend = FALSE, size = 7, alpha = .8, shape = 21, color = "white") +
-  scale_fill_viridis_d(end = .8) +
-  # title color are manually added
-  labs(title = "<span style = 'color: red;'>Virginica irises</span> have the largest average sepal width") +
+palmerpenguins::penguins  |>
+ ggplot(aes(flipper_length_mm, body_mass_g,
+             fill = species)) +
+  geom_point(size = 7, alpha = .8, shape = 21, color = "white") +
+  scale_fill_manual(values = c("plum4", "seagreen", "cadetblue")) +
+  labs(title = "<span style = 'color: cadetblue;'>Gentoo</span> are our big penguins") +
   theme(plot.title = ggtext::element_markdown())
 
 ```
 
-  
-With the {xxxx} package, we'll live in a different world (🦄 🦄 🦄) where the task is a snap 🫰: 
+An approach that automates the coordination a bit more can be found here. https://albert-rapp.de/posts/16_html_css_for_r/16_html_css_for_r
 
-Proposed API:
+But this requires a bit more typing and text in the html tags which might make the readability of the title even more challenging.
+
+
+
+
+---
+  
+With the {ggtextExtra} package, we'll live in a different world (🦄 🦄 🦄) where the task a little more automatic: 
+
+Proposed API will:
+
+1. Build a ggplot in the usual way. I.e. do whatever you like with color/fill mapping to categories
+2. apply a function to that automatically checks the colors used to represent categories and applies those in the title where the categories appear. (via ggtext::element_markdown).
+
+What that would look like in code: 
 
 <!-- The following is fenced off to quote the code, but won't execute.  -->
 
 ```
 my_title <- "The **setosa** irises has the largest average sapel widths <br>and then comes **virginica** irises while<br>**versicolor** has the shortest sapel width"
 
-iris |>
- ggplot() +
-  aes(x = Sepal.Length, 
-      y = Sepal.Width,
-      fill = Species) +
+palmerpenguins::penguins  |>
+ ggplot(aes(flipper_length_mm, body_mass_g,
+             fill = species)) +
   geom_point(shape = 21, 
              color = "white", size = 8, alpha = .9) +
   scale_fill_viridis_d(end = .8, begin = .2) +
@@ -71,6 +93,7 @@ use_fill_scale_in_title_words(plot = last_plot()) +
 ```{r, eval = F}
 devtools::create(".")
 ```
+
 # Part 00 Explore ggplot object internals
 
 
@@ -78,14 +101,18 @@ Now let's 'crack into ggplot2 internals' to see if we can get to a match between
 
 First, we'll look at the colors actually rendered in the layer data of the plot using `layer_data`. These are often (always?) stored as hex colors which will definitely work in html/markdown context, whereas you have to be a little careful with some R named colors not working at all in html.
 
+## grab fill color and associated group with `layer_data`
+
 First, we'll use `layer_data` to grab fill and group.
 
 ```{r}
 plot <- last_plot()
 
-fill_values_df <- layer_data(plot) %>%  .[,c("fill", "group")] |> distinct()
+fill_values_df <- layer_data(plot, i = 1) %>%  .[,c("fill", "group")] |> distinct()
 fill_values_df
 ```
+
+## grab the name of the variable that's mapped to fill
 
 Then we'll grab the name of the variable that's mapped to fill. This seems a little weird, but seems to works. Open to different approaches that might be more robust!
 
@@ -94,20 +121,26 @@ fill_var_name <- plot$mapping$fill |> capture.output() %>% .[2] %>% str_extract(
 fill_var_name
 ```
 
+## grab the categories in the mapped variable
+
 Then we can grab the actual vector of data that's being represented by fill color - the `plot$data` slot. We put this in a dataframe/tibble, and then used `distinct` to get a one-to-one category-group table.
 
 ```{r}
-fill_var <- plot$data %>% .[,fill_var_name] 
-fill_var
-fill_var_df <- tibble(fill_var, group = as.numeric(fill_var)) %>% distinct()
+fill_var_df <- plot$data[fill_var_name] %>% distinct()
+fill_var_df
+names(fill_var_df) <- "fill_var"
+fill_var_df <- mutate(fill_var_df, group = as.numeric(fill_var))
 fill_var_df
 ```
+
+## create a color-category crosswalk
 
 Then we join our colors and categories by group, and have a color-category one-to-one table. And then we can prepare an html statement that will make the category colorful when rendered by ggtext functionality.
 
 ```{r}
 left_join(fill_values_df, fill_var_df, by = join_by(group)) %>% 
-  mutate(html_statements = paste0("<span style = 'color: ", fill, 
+  mutate(html_replacements = 
+           paste0("<span style = 'color: ", fill, 
                          "'>", fill_var, "</span>") )
 
 ```
@@ -115,13 +148,13 @@ left_join(fill_values_df, fill_var_df, by = join_by(group)) %>%
 
 # Part I. Work out functionality  🚧 ✅ 
 
-Let's put this in a function. The function will let us go straight from a ggplot2 plot object to a dataframe that has the fill information.
+The above looks pretty promising so let's put this in a function. The function will let us go straight from a *ggplot2 plot object* to a *category-color-htmlreplcement data frame*.
 
 
 ```{r grab_fill_info}
-grab_fill_info <- function(plot){
+grab_fill_info <- function(plot = last_plot(), i = 1){
   
-fill_values_df <- ggplot2::layer_data(plot) %>%  
+fill_values_df <- ggplot2::layer_data(plot, i = i) %>%  
   .[,c("fill", "group")] |> 
   dplyr::distinct()
 
@@ -130,17 +163,18 @@ fill_var_name <- plot$mapping$fill |>
   stringr::str_extract("\\^.+") %>% 
   stringr::str_remove("\\^")
 
-fill_var <- plot$data %>% 
-  .[,fill_var_name] 
-
-fill_var_df <- tibble::tibble(fill_var, group = as.numeric(fill_var)) %>%
+fill_var_df <- plot$data[,fill_var_name] |> 
   dplyr::distinct()
+
+names(fill_var_df) <- "fill_var"
+
+fill_var_df <- fill_var_df |> mutate(group = as.numeric(fill_var))
 
 
 dplyr::left_join(fill_values_df, 
                  fill_var_df, 
                  by = dplyr::join_by(group)) %>% 
-  dplyr::mutate(html_statements = 
+  dplyr::mutate(html_replacements = 
                   paste0("<span style = 'color: ", 
                          .data$fill, 
                          "'>", 
@@ -156,6 +190,8 @@ We can test this out with the plot we saved before:
 grab_fill_info(plot = plot)
 ```
 
+## A first cut at find-replace to add html color tags automatically to a string
+
 And then we'll use the data frame output, to make replacements in a string, adding the html tags. We'll just get it done with a for loop.  One danger, that I'm leaving for later, is that you might have a categories like 'anana' (this means pineapple in Portuguese and maybe some other languages) and 'banana' (this means banana in Portuguese and maybe some other languages).  In this case, you'll have a bad result given the current implementation. (Anana has an acent on the final syllable in Portuguese you might actually be saved!)  male/female is the same problem - but not as nice of a tangent.
 
 ```{r}
@@ -163,9 +199,9 @@ fill_df <- grab_fill_info(plot)
 
 for(i in 1:nrow(fill_df)){
 
-  start <- "virginica have the largest average sapel width"
+  start <- "Gentoo have the longest average flippers"
   
-  start <- start |> stringr::str_replace(fill_df$fill_var[i] %>% as.character(), fill_df$html_statements[i])
+  start <- start |> stringr::str_replace(fill_df$fill_var[i] %>% as.character(), fill_df$html_replacements[i])
 
 start %>% print()
   
@@ -180,7 +216,7 @@ auto_color_html <- function(x, fill_df ){
   
  for(i in 1:nrow(fill_df)){
 
-  x <- x |> stringr::str_replace(fill_df$fill_var[i] %>% as.character, fill_df$html_statements[i])
+  x <- x |> stringr::str_replace(fill_df$fill_var[i] %>% as.character, fill_df$html_replacements[i])
   
  }
   
@@ -192,28 +228,28 @@ auto_color_html <- function(x, fill_df ){
 Test it out...
 
 ```{r}
-auto_color_html("The setosa iris is cool", grab_fill_info(plot))
+auto_color_html("The Gentoo is a cool penguin", grab_fill_info(plot))
 ```
 
-# The big test of everything
+## Try out constituent functions w/ a fresh plot
 
 Now let's use our functions with a fresh plot, q. 
 
 ```{r}
-iris |>
- ggplot(aes(Sepal.Length, Sepal.Width,
-             fill = Species)) +
-  geom_point(show.legend = FALSE, shape = 21, color = "white", size = 8) +
+palmerpenguins::penguins  |>
+ ggplot(aes(flipper_length_mm, body_mass_g,
+             fill = species)) +
+  geom_point(shape = 21, color = "white", size = 8) +
   scale_fill_viridis_d(end = .8, begin = .2) +
-  labs(title = "The **setosa** iris has the smallest average sapel width<br>and the **virginica** irises have largest average sapel width<br>
-       while **versicolor** is in-between") +
+  labs(title = "The **Adelie** iris has the smallest average sapel width<br>and the **Gentoo** irises have largest average sapel width<br>
+       while **Chinstrap** is in-between") +
   theme(plot.title = ggtext::element_markdown())
 
 q <- last_plot()
 
 q_fill_df <- grab_fill_info(q)
 
-colorful_title <- "The **setosa** iris has the *smallest* average sapel width<br>and the **virginica** irises have *largest* average sapel width<br> while **versicolor** is in-between" |> 
+colorful_title <- "The **Adelie** penguin has the *smallest* average flipper length<br>and the **Gentoo** have *largest* length<br> while **Chinstrap** species is in-between" |> 
         auto_color_html(q_fill_df)
 
 q + 
@@ -225,10 +261,10 @@ q +
 Looks good.  What if we wrap everything, and just replace the title with an html color-tagged version. 
 
 ```{r use_fill_scale_in_title_words}
-use_fill_scale_in_title_words <- function(plot){
+use_fill_scale_in_title_words <- function(plot, i = 1){
   
   out <- plot
-  plot_fill_df <- grab_fill_info(plot)
+  plot_fill_df <- grab_fill_info(plot, i = i)
   
   out$labels$title <- out$labels$title |> 
         auto_color_html(plot_fill_df)
@@ -242,13 +278,13 @@ use_fill_scale_in_title_words <- function(plot){
 Try it out starting fresh.
 
 ```{r}
-my_title <- "The **setosa** irises has the largest average sapel widths <br>and then comes **virginica** irises while<br>**versicolor** has the shortest sapel width"
+my_title <- "The **Adelie** penguin has the *smallest* average flipper length<br>and the **Gentoo** have *largest* length<br> while **Chinstrap** species is in-between" 
 
-iris |>
+palmerpenguins::penguins |>
  ggplot() +
-  aes(x = Sepal.Length, 
-      y = Sepal.Width,
-      fill = Species) +
+  aes(x = flipper_length_mm, 
+      y = body_mass_g,
+      fill = species) +
   geom_point(shape = 21, 
              color = "white", size = 8, alpha = .9) +
   scale_fill_viridis_d(end = .8, begin = .2) +
@@ -264,18 +300,18 @@ use_fill_scale_in_title_words(plot = last_plot()) +
 
 
 
-## Notes:
+# Issues/Notes:
 
 - fill mapping should be globally declared
 - data should be globally declared
-- should make function have an index for layer from which to get the fill information
+- fill colors are taken from the 1st layer unless i is changed.
 - naive string replacement issue
 
 
 
-# Part II. Packaging and documentation  🚧 ✅ 
+# Part II. Packaging and documentation
 
-## Phase 1. Minimal working package
+## Phase 1. Minimal working package ✅  
 
 To build a minimal working package, 1) we'll need to document dependencies 2) send functions to .R files in the R folder, 3) do a package check (this will A. Document our functions and B. this will help us identify problems - for example if we've failed to declare a dependency) and 4) install the package locally.  
 
@@ -310,27 +346,27 @@ devtools::install(pkg = ".", upgrade = "never")
 ```
 
 
-### Bit 7. Write traditional README that uses built package (also serves as a test of build). 🚧 ✅ 
+### Bit 7. Write traditional README that uses built package (also serves as a test of build). ✅ 
 
-The goal of the {xxxx} package is to ...
+The goal of the {ggtextExtra} package is to ...
 
 Install package with:
 
 ```
-remotes::install_github("GithubCoolUser/mypacakge")
+remotes::install_github("EvaMaeRey/ggtextExtra")
 ```
 
 Once functions are exported you can remove go to two colons, and when things are are really finalized, then go without colons (and rearrange your readme...)
 
-```{r, eval = F}
+```{r, eval = T}
 library(ggtextExtra)
-my_title <- "The **setosa** irises has the largest average sapel widths <br>and then comes **virginica** irises while<br>**versicolor** has the shortest sapel width"
+my_title <- "The **Adelie** penguin has the *smallest* average flipper length<br>and the **Gentoo** have *largest* length<br> while **Chinstrap** species is in-between"
 
-iris |>
+palmerpenguins::penguins |>
  ggplot() +
-  aes(x = Sepal.Length, 
-      y = Sepal.Width,
-      fill = Species) +
+  aes(x = flipper_length_mm, 
+      y = body_mass_g,
+      fill = species) +
   geom_point(shape = 21, 
              color = "white", size = 8, alpha = .9) +
   scale_fill_viridis_d(end = .8, begin = .2) +
@@ -347,15 +383,15 @@ ggtextExtra:::use_fill_scale_in_title_words(plot = last_plot()) +
 
 # Bit 10: listen and iterate
 
-## Phase 3: Settling and testing 🚧 ✅ 
+## Phase 3: Settling and testing 🚧 
 
-### Bit A. Added a description and author information in the [DESCRIPTION file](https://r-pkgs.org/description.html) 🚧 ✅
+### Bit A. Added a description and author information in the [DESCRIPTION file](https://r-pkgs.org/description.html) 🚧
 
-### Bit B. Added [roxygen skeleton](https://r-pkgs.org/man.html) for exported functions. 🚧 ✅
+### Bit B. Added [roxygen skeleton](https://r-pkgs.org/man.html) for exported functions. 🚧 
 
-### Bit D. Settle on [examples](https://r-pkgs.org/man.html#sec-man-examples).  Put them in the roxygen skeleton and readme. 🚧 ✅
+### Bit D. Settle on [examples](https://r-pkgs.org/man.html#sec-man-examples).  Put them in the roxygen skeleton and readme. 🚧 
 
-### Bit C. Chosen a [license](https://r-pkgs.org/license.html)? 🚧 ✅
+### Bit C. Chosen a [license](https://r-pkgs.org/license.html)? 🚧 
 
 ```{r, eval = F}
 usethis::use_mit_license()
@@ -368,7 +404,7 @@ usethis::use_lifecycle_badge("experimental")
 ```
 
 
-### Bit E. Written formal [tests](https://r-pkgs.org/testing-basics.html) of functions and save to test that folders 🚧 ✅
+### Bit E. Written formal [tests](https://r-pkgs.org/testing-basics.html) of functions and save to test that folders 🚧 
 
 
 
@@ -393,31 +429,31 @@ knitrExtra::chunk_to_tests_testthat("test_calc_times_two_works")
 
 
 
-### Bit F. Check again. Addressed notes, warnings and errors. 🚧 ✅
+### Bit F. Check again. Addressed notes, warnings and errors. 🚧 
 
 
 ```{r, eval = F}
 devtools::check(pkg = ".")
 ```
 
-## Phase 4. Promote to wider audience...  🚧 ✅ 
+## Phase 4. Promote to wider audience...  🚧 
 
-### Bit A. Package website built? 🚧 ✅
+### Bit A. Package website built? 🚧 
 
 
-### Bit B. Package website deployed? 🚧 ✅
+### Bit B. Package website deployed? 🚧 
 
-## Phase 5: Harden/commit: Submit to CRAN/RUniverse 🚧 ✅ 
+## Phase 5: Harden/commit: Submit to CRAN/RUniverse 🚧 
 
 # Appendix: Reports, Environment
 
-## Description file complete?  🚧 ✅
+## Description file complete?  🚧 
 
 ```{r, eval = F}
 readLines("DESCRIPTION")
 ```
 
-## Environment  🚧 ✅
+## Environment  🚧 
 
 Here I just want to print the packages and the versions
 
