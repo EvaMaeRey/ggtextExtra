@@ -232,7 +232,9 @@ function will let us go straight from a *ggplot2 plot object* to a
 *category-color-htmlreplcement data frame*.
 
 ``` r
-grab_fill_info <- function(plot = last_plot(), i = 1){
+grab_fill_info <- function(plot = last_plot(), i = NULL){
+  
+  if(is.null(i)){i <- length(plot$layers)}
   
 fill_values_df <- ggplot2::layer_data(plot, i = i) %>%  
   .[,c("fill", "group")] |> 
@@ -248,7 +250,7 @@ fill_var_df <- plot$data[,fill_var_name] |>
 
 names(fill_var_df) <- "fill_var"
 
-fill_var_df <- fill_var_df |> mutate(group = as.numeric(fill_var))
+fill_var_df <- fill_var_df |> mutate(group = as.numeric(as.factor(fill_var)))
 
 
 dplyr::left_join(fill_values_df, 
@@ -259,7 +261,8 @@ dplyr::left_join(fill_values_df,
                          .data$fill, 
                          "'>", 
                          .data$fill_var, 
-                         "</span></strong>") )
+                         "</span></strong>") ) %>% 
+  ggplot2::remove_missing()  # where category is NA
   
 }
 ```
@@ -372,9 +375,12 @@ Looks good. What if we wrap everything, and just replace the title with
 an html color-tagged version.
 
 ``` r
-use_fill_scale_in_title_words <- function(plot, i = 1){
+use_fill_scale_in_title_words <- function(plot, i = NULL){
   
   out <- plot
+  
+  if(!is.null(i)){i <- length(plot$layers)}  # looks at last layer for fill colors
+  
   plot_fill_df <- grab_fill_info(plot, i = i)
   
   out$labels$title <- out$labels$title |> 
@@ -416,11 +422,137 @@ use_fill_scale_in_title_words(plot = last_plot()) +
 
 ![](README_files/figure-gfm/unnamed-chunk-12-2.png)<!-- -->
 
+``` r
+
+# Option 2: Read directly from GitHub
+
+wwbi_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-04-30/wwbi_data.csv')
+#> Rows: 141985 Columns: 4
+#> ── Column specification ────────────────────────────────────────────────────────
+#> Delimiter: ","
+#> chr (2): country_code, indicator_code
+#> dbl (2): year, value
+#> 
+#> ℹ Use `spec()` to retrieve the full column specification for this data.
+#> ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+wwbi_series <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-04-30/wwbi_series.csv')
+#> Rows: 302 Columns: 2
+#> ── Column specification ────────────────────────────────────────────────────────
+#> Delimiter: ","
+#> chr (2): indicator_code, indicator_name
+#> 
+#> ℹ Use `spec()` to retrieve the full column specification for this data.
+#> ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+wwbi_country <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-04-30/wwbi_country.csv')
+#> Rows: 202 Columns: 29
+#> ── Column specification ────────────────────────────────────────────────────────
+#> Delimiter: ","
+#> chr (21): country_code, short_name, table_name, long_name, x2_alpha_code, cu...
+#> dbl  (7): national_accounts_base_year, national_accounts_reference_year, sys...
+#> lgl  (1): vital_registration_complete
+#> 
+#> ℹ Use `spec()` to retrieve the full column specification for this data.
+#> ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+
+head(wwbi_data)
+#> # A tibble: 6 × 4
+#>   country_code indicator_code     year value
+#>   <chr>        <chr>             <dbl> <dbl>
+#> 1 AFG          BI.WAG.PRVS.FM.SM  2007 1.11 
+#> 2 AFG          BI.WAG.PRVS.FM.SM  2013 0.649
+#> 3 AFG          BI.WAG.PRVS.FM.MD  2007 0.533
+#> 4 AFG          BI.WAG.PRVS.FM.MD  2013 0.433
+#> 5 AFG          BI.WAG.PUBS.FM.SM  2007 0.858
+#> 6 AFG          BI.WAG.PUBS.FM.SM  2013 0.661
+head(wwbi_series)
+#> # A tibble: 6 × 2
+#>   indicator_code       indicator_name                                           
+#>   <chr>                <chr>                                                    
+#> 1 BI.EMP.FRML.CA.PB.ZS Core Public Administration workers, as a share of public…
+#> 2 BI.EMP.FRML.ED.PB.ZS Education workers, as a share of public formal employees 
+#> 3 BI.EMP.FRML.HE.PB.ZS Health workers, as a share of public formal employees    
+#> 4 BI.EMP.FRML.MW.PB.ZS Medical workers, as a share of public formal employees   
+#> 5 BI.EMP.FRML.PB.ED.ZS Public sector employment, as a share of formal employmen…
+#> 6 BI.EMP.FRML.PB.HE.ZS Public sector employment, as a share of formal employmen…
+head(wwbi_country)
+#> # A tibble: 6 × 29
+#>   country_code short_name       table_name long_name x2_alpha_code currency_unit
+#>   <chr>        <chr>            <chr>      <chr>     <chr>         <chr>        
+#> 1 ABW          Aruba            Aruba      Aruba     AW            Aruban florin
+#> 2 AFG          Afghanistan      Afghanist… Islamic … AF            Afghan afgha…
+#> 3 AGO          Angola           Angola     People's… AO            Angolan kwan…
+#> 4 AIA          Anguilla         Anguilla   Anguilla… <NA>          Eastern Cari…
+#> 5 ALB          Albania          Albania    Republic… AL            Albanian lek 
+#> 6 ARE          United Arab Emi… United Ar… United A… AE            U.A.E. dirham
+#> # ℹ 23 more variables: special_notes <chr>, region <chr>, income_group <chr>,
+#> #   wb_2_code <chr>, national_accounts_base_year <dbl>,
+#> #   national_accounts_reference_year <dbl>, sna_price_valuation <chr>,
+#> #   lending_category <chr>, other_groups <chr>,
+#> #   system_of_national_accounts <dbl>, balance_of_payments_manual_in_use <chr>,
+#> #   external_debt_reporting_status <chr>, system_of_trade <chr>,
+#> #   government_accounting_concept <chr>, …
+
+wwbi_series %>% 
+  filter(indicator_code == "BI.EMP.PWRK.PB.HE.ZS") %>% 
+  .[2] ->
+y_var
+
+wwbi_data %>% 
+  filter(indicator_code == "BI.EMP.PWRK.PB.HE.ZS"    ) %>% 
+  left_join(wwbi_country) %>% 
+  filter(region == "Latin America & Caribbean") %>% 
+  mutate(is_select_country = short_name %in% 
+                                     c("Peru","Colombia")) %>% 
+  mutate(select_countries = ifelse(is_select_country,
+                                   short_name, NA)) %>% 
+  arrange(is_select_country) %>% 
+  ggplot() + 
+  labs(title = y_var %>% 
+         paste("<br>in Latin America, highlighting **Peru** and **Colombia**")) +
+  aes(x = year, y = value, fill = select_countries, color = select_countries) +
+  # geom_text(aes(label = country_code)) +
+  geom_line(aes(group = country_code), alpha = .5) + 
+  geom_point(shape = 21, size = 6, color = "white") + 
+  scale_fill_manual(values = c("darkseagreen4", "plum4"), na.value = "grey70") + 
+  scale_color_manual(values = c("darkseagreen4", "plum4"), na.value = "grey70") + 
+
+  scale_fill_viridis_d(na.value = "grey70", end = .7, begin = .1) + 
+  # scale_fill_viridis_d() +  # no color..
+  NULL
+#> Joining with `by = join_by(country_code)`
+#> Scale for fill is already present. Adding another scale for fill, which will
+#> replace the existing scale.
+```
+
+![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+
+``` r
+
+
+use_fill_scale_in_title_words(last_plot()) +
+  theme(plot.title = ggtext::element_markdown()) +
+  guides(fill = "none", color = "none") 
+#> Warning: Removed 1 row containing missing values or values outside the scale
+#> range.
+```
+
+![](README_files/figure-gfm/unnamed-chunk-13-2.png)<!-- -->
+
+``` r
+
+last_plot()+ 
+  facet_wrap(~country_code)
+#> `geom_line()`: Each group consists of only one observation.
+#> ℹ Do you need to adjust the group aesthetic?
+```
+
+![](README_files/figure-gfm/unnamed-chunk-13-3.png)<!-- -->
+
 # Issues/Notes:
 
   - fill mapping should be globally declared
   - data should be globally declared
-  - fill colors are taken from the 1st layer unless i is changed.
+  - fill colors are taken from the last (top) layer unless i is changed.
   - naive string replacement issue
 
 # Part II. Packaging and documentation
@@ -459,10 +591,11 @@ knitrExtra::chunk_names_get()
 #> [15] "unnamed-chunk-12"              "unnamed-chunk-13"             
 #> [17] "unnamed-chunk-14"              "unnamed-chunk-15"             
 #> [19] "unnamed-chunk-16"              "unnamed-chunk-17"             
-#> [21] "unnamed-chunk-18"              "test_calc_times_two_works"    
-#> [23] "unnamed-chunk-19"              "unnamed-chunk-20"             
+#> [21] "unnamed-chunk-18"              "unnamed-chunk-19"             
+#> [23] "test_calc_times_two_works"     "unnamed-chunk-20"             
 #> [25] "unnamed-chunk-21"              "unnamed-chunk-22"             
-#> [27] "unnamed-chunk-23"              "unnamed-chunk-24"
+#> [27] "unnamed-chunk-23"              "unnamed-chunk-24"             
+#> [29] "unnamed-chunk-25"
 # Bit 3: send the code chunk with function to R folder
 knitrExtra:::chunk_to_r(chunk_name = "grab_fill_info") 
 #> It seems you are currently knitting a Rmd/Qmd file. The parsing of the file will be done in a new R session.
@@ -510,7 +643,7 @@ palmerpenguins::penguins |>
 #> (`geom_point()`).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
 ``` r
 
@@ -520,7 +653,7 @@ ggtextExtra:::use_fill_scale_in_title_words(plot = last_plot()) +
 #> (`geom_point()`).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-16-2.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-17-2.png)<!-- -->
 
 # Bit 8: Compile readme
 
@@ -630,8 +763,13 @@ fs::dir_tree(recurse = T)
 #> │       ├── unnamed-chunk-11-2.png
 #> │       ├── unnamed-chunk-12-1.png
 #> │       ├── unnamed-chunk-12-2.png
+#> │       ├── unnamed-chunk-13-1.png
+#> │       ├── unnamed-chunk-13-2.png
+#> │       ├── unnamed-chunk-13-3.png
 #> │       ├── unnamed-chunk-16-1.png
 #> │       ├── unnamed-chunk-16-2.png
+#> │       ├── unnamed-chunk-17-1.png
+#> │       ├── unnamed-chunk-17-2.png
 #> │       └── unnamed-chunk-2-1.png
 #> ├── ggtextExtra.Rproj
 #> ├── man

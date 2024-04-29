@@ -152,7 +152,9 @@ The above looks pretty promising so let's put this in a function. The function w
 
 
 ```{r grab_fill_info}
-grab_fill_info <- function(plot = last_plot(), i = 1){
+grab_fill_info <- function(plot = last_plot(), i = NULL){
+  
+  if(is.null(i)){i <- length(plot$layers)}
   
 fill_values_df <- ggplot2::layer_data(plot, i = i) %>%  
   .[,c("fill", "group")] |> 
@@ -168,7 +170,7 @@ fill_var_df <- plot$data[,fill_var_name] |>
 
 names(fill_var_df) <- "fill_var"
 
-fill_var_df <- fill_var_df |> mutate(group = as.numeric(fill_var))
+fill_var_df <- fill_var_df |> mutate(group = as.numeric(as.factor(fill_var)))
 
 
 dplyr::left_join(fill_values_df, 
@@ -179,7 +181,8 @@ dplyr::left_join(fill_values_df,
                          .data$fill, 
                          "'>", 
                          .data$fill_var, 
-                         "</span></strong>") )
+                         "</span></strong>") ) %>% 
+  ggplot2::remove_missing()  # where category is NA
   
 }
 ```
@@ -261,9 +264,12 @@ q +
 Looks good.  What if we wrap everything, and just replace the title with an html color-tagged version. 
 
 ```{r use_fill_scale_in_title_words}
-use_fill_scale_in_title_words <- function(plot, i = 1){
+use_fill_scale_in_title_words <- function(plot, i = NULL){
   
   out <- plot
+  
+  if(!is.null(i)){i <- length(plot$layers)}  # looks at last layer for fill colors
+  
   plot_fill_df <- grab_fill_info(plot, i = i)
   
   out$labels$title <- out$labels$title |> 
@@ -295,7 +301,55 @@ use_fill_scale_in_title_words(plot = last_plot()) +
   guides(fill = "none")
 ```
 
+```{r}
 
+# Option 2: Read directly from GitHub
+
+wwbi_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-04-30/wwbi_data.csv')
+wwbi_series <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-04-30/wwbi_series.csv')
+wwbi_country <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-04-30/wwbi_country.csv')
+
+head(wwbi_data)
+head(wwbi_series)
+head(wwbi_country)
+
+wwbi_series %>% 
+  filter(indicator_code == "BI.EMP.PWRK.PB.HE.ZS") %>% 
+  .[2] ->
+y_var
+
+wwbi_data %>% 
+  filter(indicator_code == "BI.EMP.PWRK.PB.HE.ZS"	 ) %>% 
+  left_join(wwbi_country) %>% 
+  filter(region == "Latin America & Caribbean") %>% 
+  mutate(is_select_country = short_name %in% 
+                                     c("Peru","Colombia")) %>% 
+  mutate(select_countries = ifelse(is_select_country,
+                                   short_name, NA)) %>% 
+  arrange(is_select_country) %>% 
+  ggplot() + 
+  labs(title = y_var %>% 
+         paste("<br>in Latin America, highlighting **Peru** and **Colombia**")) +
+  aes(x = year, y = value, fill = select_countries, color = select_countries) +
+  # geom_text(aes(label = country_code)) +
+  geom_line(aes(group = country_code), alpha = .5) + 
+  geom_point(shape = 21, size = 6, color = "white") + 
+  scale_fill_manual(values = c("darkseagreen4", "plum4"), na.value = "grey70") + 
+  scale_color_manual(values = c("darkseagreen4", "plum4"), na.value = "grey70") + 
+
+  scale_fill_viridis_d(na.value = "grey70", end = .7, begin = .1) + 
+  # scale_fill_viridis_d() +  # no color..
+  NULL
+
+
+use_fill_scale_in_title_words(last_plot()) +
+  theme(plot.title = ggtext::element_markdown()) +
+  guides(fill = "none", color = "none") 
+
+last_plot()+ 
+  facet_wrap(~country_code)
+
+```
 
 
 
@@ -304,7 +358,7 @@ use_fill_scale_in_title_words(plot = last_plot()) +
 
 - fill mapping should be globally declared
 - data should be globally declared
-- fill colors are taken from the 1st layer unless i is changed.
+- fill colors are taken from the last (top) layer unless i is changed.
 - naive string replacement issue
 
 

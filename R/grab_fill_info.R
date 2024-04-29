@@ -1,4 +1,6 @@
-grab_fill_info <- function(plot = last_plot(), i = 1){
+grab_fill_info <- function(plot = last_plot(), i = NULL){
+  
+  if(is.null(i)){i <- length(plot$layers)}
   
 fill_values_df <- ggplot2::layer_data(plot, i = i) %>%  
   .[,c("fill", "group")] |> 
@@ -14,7 +16,7 @@ fill_var_df <- plot$data[,fill_var_name] |>
 
 names(fill_var_df) <- "fill_var"
 
-fill_var_df <- fill_var_df |> mutate(group = as.numeric(fill_var))
+fill_var_df <- fill_var_df |> mutate(group = as.numeric(as.factor(fill_var)))
 
 
 dplyr::left_join(fill_values_df, 
@@ -25,6 +27,7 @@ dplyr::left_join(fill_values_df,
                          .data$fill, 
                          "'>", 
                          .data$fill_var, 
-                         "</span></strong>") )
+                         "</span></strong>") ) %>% 
+  ggplot2::remove_missing()  # where category is NA
   
 }
