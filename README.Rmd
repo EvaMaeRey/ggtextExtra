@@ -16,11 +16,21 @@ knitr::opts_chunk$set(
 ```
 
 
+
+
+> When participants were shown visualizations with titles during encoding, the titles were fixated 59% of the time. Correspondingly, during the recall phase of the experiment, titles were the element most likely to be described if present (see Fig. 8). When presented visualizations with titles, 46% of the time the participants described the contents, or rewording, of the title. - Beyond Memorability: Visualization Recognition and Recall
+
+> Across all textual elements, the title is among the most important. A good or a bad title can sometimes make all of the difference between a visualization that is recalled correctly from one that is not - Beyond Memorability: Visualization Recognition and Recall https://vcg.seas.harvard.edu/files/pfister/files/infovis_submission251-camera.pdf
+
+> https://youtu.be/L5_4kuoiiKU?si=ViZVNn981ulbB09b&t=352
+
+
+
 # Part 000. Abstract
 
 ggplot2 users sometimes forego a color or fill legend, instead coloring the text of categories in a title or annotation as they make mention of them using ggtext.
 
-But the process for doing this, I believer, can be somewhat tedious and error prone, because you have to type your own html color tags. The color tags also might make source composed title text less readable.
+But the process for doing this, I believe, can be somewhat tedious and error prone, because you have to type your own html color tags. The color tags also might make source composed title text less readable.
 
 I admire these plots, but maybe have made them once because they require some stamina and focus to choreograph the colored text coordination.
 
@@ -51,11 +61,28 @@ palmerpenguins::penguins  |>
 
 ```
 
-An approach that automates the coordination a bit more can be found here. https://albert-rapp.de/posts/16_html_css_for_r/16_html_css_for_r
+An approach that automates the coordination a *bit* more can be found here. https://albert-rapp.de/posts/16_html_css_for_r/16_html_css_for_r
 
-But this requires a bit more typing and text in the html tags which might make the readability of the title even more challenging.
+```{r, eval = F}
+library(tidyverse)
+
+colors <- thematic::okabe_ito(2)
+names(colors) <- c('male', 'female')
+
+palmerpenguins::penguins |> 
+  filter(!is.na(sex)) |> 
+  ggplot(aes(bill_length_mm, flipper_length_mm, fill = sex)) +
+  geom_point(size = 3, alpha = 0.75, col = 'black', shape = 21) +
+  labs(
+    x = 'Bill length (in mm)',
+    y = 'Flipper length (in mm)',
+    title = glue::glue('Measurements of <span style="color:{colors["male"]}">**male**</span> and <span style=color:{colors["female"]}>**female**</span> penguins')
+  ) +
+  scale_fill_manual(values = colors)
+```
 
 
+But this requires a bit more in the way of presteps and writing text in the html tags; these tags also might make the readability of the title even more challenging.
 
 
 ---

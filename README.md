@@ -41,13 +41,29 @@
       - [`devtools::check()` report](#devtoolscheck-report)
       - [Package directory file tree](#package-directory-file-tree)
 
+> When participants were shown visualizations with titles during
+> encoding, the titles were fixated 59% of the time. Correspondingly,
+> during the recall phase of the experiment, titles were the element
+> most likely to be described if present (see Fig. 8). When presented
+> visualizations with titles, 46% of the time the participants described
+> the contents, or rewording, of the title. - Beyond Memorability:
+> Visualization Recognition and Recall
+
+> Across all textual elements, the title is among the most important. A
+> good or a bad title can sometimes make all of the difference between a
+> visualization that is recalled correctly from one that is not - Beyond
+> Memorability: Visualization Recognition and Recall
+> <https://vcg.seas.harvard.edu/files/pfister/files/infovis_submission251-camera.pdf>
+
+> <https://youtu.be/L5_4kuoiiKU?si=ViZVNn981ulbB09b&t=352>
+
 # Part 000. Abstract
 
 ggplot2 users sometimes forego a color or fill legend, instead coloring
 the text of categories in a title or annotation as they make mention of
 them using ggtext.
 
-But the process for doing this, I believer, can be somewhat tedious and
+But the process for doing this, I believe, can be somewhat tedious and
 error prone, because you have to type your own html color tags. The
 color tags also might make source composed title text less readable.
 
@@ -74,12 +90,12 @@ Without the package, we can do something like the following 🏋:
 
 ``` r
 library(tidyverse)
-#> ── Attaching core tidyverse packages ─────────────────── tidyverse 2.0.0.9000 ──
-#> ✔ dplyr     1.1.0          ✔ readr     2.1.4     
-#> ✔ forcats   1.0.0          ✔ stringr   1.5.0     
-#> ✔ ggplot2   3.4.4.9000     ✔ tibble    3.2.1     
-#> ✔ lubridate 1.9.2          ✔ tidyr     1.3.0     
-#> ✔ purrr     1.0.1          
+#> ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+#> ✔ dplyr     1.1.4     ✔ readr     2.1.5
+#> ✔ forcats   1.0.0     ✔ stringr   1.5.1
+#> ✔ ggplot2   3.5.1     ✔ tibble    3.2.1
+#> ✔ lubridate 1.9.3     ✔ tidyr     1.3.1
+#> ✔ purrr     1.0.2     
 #> ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
 #> ✖ dplyr::filter() masks stats::filter()
 #> ✖ dplyr::lag()    masks stats::lag()
@@ -98,11 +114,30 @@ palmerpenguins::penguins  |>
 
 ![](README_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
 
-An approach that automates the coordination a bit more can be found
+An approach that automates the coordination a *bit* more can be found
 here. <https://albert-rapp.de/posts/16_html_css_for_r/16_html_css_for_r>
 
-But this requires a bit more typing and text in the html tags which
-might make the readability of the title even more challenging.
+``` r
+library(tidyverse)
+
+colors <- thematic::okabe_ito(2)
+names(colors) <- c('male', 'female')
+
+palmerpenguins::penguins |> 
+  filter(!is.na(sex)) |> 
+  ggplot(aes(bill_length_mm, flipper_length_mm, fill = sex)) +
+  geom_point(size = 3, alpha = 0.75, col = 'black', shape = 21) +
+  labs(
+    x = 'Bill length (in mm)',
+    y = 'Flipper length (in mm)',
+    title = glue::glue('Measurements of <span style="color:{colors["male"]}">**male**</span> and <span style=color:{colors["female"]}>**female**</span> penguins')
+  ) +
+  scale_fill_manual(values = colors)
+```
+
+But this requires a bit more in the way of presteps and writing text in
+the html tags; these tags also might make the readability of the title
+even more challenging.
 
 -----
 
@@ -350,7 +385,7 @@ palmerpenguins::penguins  |>
 #> (`geom_point()`).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
 
 ``` r
 
@@ -367,7 +402,7 @@ q +
 #> (`geom_point()`).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-11-2.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-12-2.png)<!-- -->
 
 # Further bundling
 
@@ -410,7 +445,7 @@ palmerpenguins::penguins |>
 #> (`geom_point()`).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
 
 ``` r
 
@@ -420,7 +455,7 @@ use_fill_scale_in_title_words(plot = last_plot()) +
 #> (`geom_point()`).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-12-2.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-13-2.png)<!-- -->
 
 ``` r
 
@@ -524,7 +559,7 @@ wwbi_data %>%
 #> replace the existing scale.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
 
 ``` r
 
@@ -536,7 +571,7 @@ use_fill_scale_in_title_words(last_plot()) +
 #> range.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-13-2.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-14-2.png)<!-- -->
 
 ``` r
 
@@ -546,7 +581,7 @@ last_plot()+
 #> ℹ Do you need to adjust the group aesthetic?
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-13-3.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-14-3.png)<!-- -->
 
 # Issues/Notes:
 
@@ -584,18 +619,18 @@ knitrExtra::chunk_names_get()
 #>  [1] "unnamed-chunk-1"               "unnamed-chunk-2"              
 #>  [3] "unnamed-chunk-3"               "unnamed-chunk-4"              
 #>  [5] "unnamed-chunk-5"               "unnamed-chunk-6"              
-#>  [7] "unnamed-chunk-7"               "grab_fill_info"               
-#>  [9] "unnamed-chunk-8"               "unnamed-chunk-9"              
-#> [11] "auto_color_html"               "unnamed-chunk-10"             
-#> [13] "unnamed-chunk-11"              "use_fill_scale_in_title_words"
-#> [15] "unnamed-chunk-12"              "unnamed-chunk-13"             
+#>  [7] "unnamed-chunk-7"               "unnamed-chunk-8"              
+#>  [9] "grab_fill_info"                "unnamed-chunk-9"              
+#> [11] "unnamed-chunk-10"              "auto_color_html"              
+#> [13] "unnamed-chunk-11"              "unnamed-chunk-12"             
+#> [15] "use_fill_scale_in_title_words" "unnamed-chunk-13"             
 #> [17] "unnamed-chunk-14"              "unnamed-chunk-15"             
 #> [19] "unnamed-chunk-16"              "unnamed-chunk-17"             
 #> [21] "unnamed-chunk-18"              "unnamed-chunk-19"             
-#> [23] "test_calc_times_two_works"     "unnamed-chunk-20"             
+#> [23] "unnamed-chunk-20"              "test_calc_times_two_works"    
 #> [25] "unnamed-chunk-21"              "unnamed-chunk-22"             
 #> [27] "unnamed-chunk-23"              "unnamed-chunk-24"             
-#> [29] "unnamed-chunk-25"
+#> [29] "unnamed-chunk-25"              "unnamed-chunk-26"
 # Bit 3: send the code chunk with function to R folder
 knitrExtra:::chunk_to_r(chunk_name = "grab_fill_info") 
 #> It seems you are currently knitting a Rmd/Qmd file. The parsing of the file will be done in a new R session.
@@ -627,6 +662,7 @@ your readme…)
 
 ``` r
 library(ggtextExtra)
+#> Error in library(ggtextExtra): there is no package called 'ggtextExtra'
 my_title <- "The **Adelie** penguin has the *smallest* average flipper length<br>and the **Gentoo** have *largest* length<br> while **Chinstrap** species is in-between"
 
 palmerpenguins::penguins |>
@@ -643,17 +679,14 @@ palmerpenguins::penguins |>
 #> (`geom_point()`).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
 
 ``` r
 
 ggtextExtra:::use_fill_scale_in_title_words(plot = last_plot()) + 
   guides(fill = "none")
-#> Warning: Removed 2 rows containing missing values or values outside the scale range
-#> (`geom_point()`).
+#> Error in loadNamespace(x): there is no package called 'ggtextExtra'
 ```
-
-![](README_files/figure-gfm/unnamed-chunk-17-2.png)<!-- -->
 
 # Bit 8: Compile readme
 
@@ -729,12 +762,12 @@ Here I just want to print the packages and the versions
 all <- sessionInfo() |> print() |> capture.output()
 all[11:17]
 #> [1] ""                                                                         
-#> [2] "attached base packages:"                                                  
-#> [3] "[1] stats     graphics  grDevices utils     datasets  methods   base     "
+#> [2] "time zone: America/Denver"                                                
+#> [3] "tzcode source: internal"                                                  
 #> [4] ""                                                                         
-#> [5] "other attached packages:"                                                 
-#> [6] " [1] ggtextExtra_0.0.0.9000 lubridate_1.9.2        forcats_1.0.0         "
-#> [7] " [4] stringr_1.5.0          dplyr_1.1.0            purrr_1.0.1           "
+#> [5] "attached base packages:"                                                  
+#> [6] "[1] stats     graphics  grDevices utils     datasets  methods   base     "
+#> [7] ""
 ```
 
 ## `devtools::check()` report
@@ -766,10 +799,14 @@ fs::dir_tree(recurse = T)
 #> │       ├── unnamed-chunk-13-1.png
 #> │       ├── unnamed-chunk-13-2.png
 #> │       ├── unnamed-chunk-13-3.png
+#> │       ├── unnamed-chunk-14-1.png
+#> │       ├── unnamed-chunk-14-2.png
+#> │       ├── unnamed-chunk-14-3.png
 #> │       ├── unnamed-chunk-16-1.png
 #> │       ├── unnamed-chunk-16-2.png
 #> │       ├── unnamed-chunk-17-1.png
 #> │       ├── unnamed-chunk-17-2.png
+#> │       ├── unnamed-chunk-18-1.png
 #> │       └── unnamed-chunk-2-1.png
 #> ├── ggtextExtra.Rproj
 #> ├── man
